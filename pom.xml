@@ -11,6 +11,7 @@
     <modules>
         <module>indexer</module>
         <module>searcher</module>
+        <module>utils</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

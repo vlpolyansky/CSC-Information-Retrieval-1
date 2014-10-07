@@ -1,12 +1,14 @@
 package csc.vlpol.infret;
 
+import org.apache.lucene.morphology.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 
 import java.io.*;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+
+import static csc.vlpol.infret.Utils.*;
 
 public class Indexer {
 
@@ -24,12 +26,13 @@ public class Indexer {
         }
     }
 
-    private LuceneMorphology morphology;
-    private HashMap<String, ArrayList<Integer>> indexMap = new HashMap<>();
+    private LuceneMorphology rusMorphology, engMorphology;
+    private HashMap<String, IntArrayList> indexMap = new HashMap<>();
     private File[] documents;
 
     public Indexer() throws IOException {
-        morphology = new RussianLuceneMorphology();
+        rusMorphology = new RussianLuceneMorphology();
+        engMorphology = new EnglishLuceneMorphology();
     }
 
     public void build(String docsDir, String indexFile) throws IOException {
@@ -51,15 +54,17 @@ public class Indexer {
             WordTokenizer tok = new WordTokenizer(line);
             String word;
             while ((word = tok.nextWord()) != null) {
-//                System.err.println(word);
-                for (String def : morphology.getNormalForms(word.toLowerCase())) {
-//                    System.err.println("    " + def);
+                LuceneMorphology curMorphology = isRussian(word.charAt(0)) ? rusMorphology : engMorphology;
+                for (String def : curMorphology.getNormalForms(word.toLowerCase())) {
                     if (!indexMap.containsKey(def)) {
-                        ArrayList<Integer> value = new ArrayList<>();
+                        IntArrayList value = new IntArrayList();
                         value.add(doc);
                         indexMap.put(def, value);
                     } else {
-                        indexMap.get(def).add(doc);
+                        IntArrayList list = indexMap.get(def);
+                        if (list.last() != doc) {
+                            list.add(doc);
+                        }
                     }
                 }
             }
@@ -74,10 +79,11 @@ public class Indexer {
             out.println(doc.getName());
         }
         out.println(indexMap.size());
-        for (Map.Entry<String, ArrayList<Integer>> entry : indexMap.entrySet()) {
+        for (Map.Entry<String, IntArrayList> entry : indexMap.entrySet()) {
             out.print(entry.getKey() + " ");
-            for (Integer value : entry.getValue()) {
-                out.print(value + " ");
+            IntArrayList value = entry.getValue();
+            for (int i = 0; i < value.size(); ++i) {
+                out.print(value.get(i) + " ");
             }
             out.println();
         }
@@ -94,22 +100,19 @@ public class Indexer {
         }
 
         public String nextWord() {
-            while (i < line.length() && !isRussian(line.charAt(i))) {
+            while (i < line.length() && !isRussian(line.charAt(i)) && !isEnglish(line.charAt(i))) {
                 ++i;
             }
             if (i == line.length()) {
                 return null;
             }
             int start = i;
-            while (i < line.length() && isRussian(line.charAt(i))) {
+            boolean rus = isRussian(line.charAt(i));
+            while (i < line.length() && (rus ? isRussian(line.charAt(i)) : isEnglish(line.charAt(i)))) {
                 ++i;
             }
             return line.substring(start, i);
 
-        }
-
-        private boolean isRussian(char c) {
-            return c >= 'а' && c <= 'я' || c >= 'А' && c <= 'Я' || c == 'ё' || c == 'Ё';
         }
     }
 }

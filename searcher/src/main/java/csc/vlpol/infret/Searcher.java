@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringTokenizer;
 
+import static csc.vlpol.infret.Utils.*;
+
 public class Searcher {
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -21,7 +23,7 @@ public class Searcher {
         }
     }
 
-    private HashMap<String, ArrayList<Integer>> indexMap = new HashMap<>();
+    private HashMap<String, IntArrayList> indexMap = new HashMap<>();
     private String[] documents;
     @SuppressWarnings("all")
     private boolean running = true;
@@ -50,7 +52,7 @@ public class Searcher {
         for (int i = 0; i < sz; ++i) {
             StringTokenizer tok = new StringTokenizer(in.readLine());
             String word = tok.nextToken();
-            ArrayList<Integer> value = new ArrayList<>();
+            IntArrayList value = new IntArrayList();
             while (tok.hasMoreTokens()) {
                 value.add(Integer.parseInt(tok.nextToken()));
             }
@@ -112,8 +114,9 @@ public class Searcher {
                     return;
                 }
             } else {
-                for (Integer doc : indexMap.get(word)) {
-                    ++results[doc];
+                IntArrayList value = indexMap.get(word);
+                for (int i = 0; i < value.size(); ++i) {
+                    ++results[value.get(i)];
                 }
             }
         }
@@ -140,13 +143,21 @@ public class Searcher {
         }
     }
 
-    private boolean isRussian(char c) {
-        return c >= 'а' && c <= 'я' || c >= 'А' && c <= 'Я' || c == 'ё' || c == 'Ё';
-    }
-
     private boolean check(String word) {
+        boolean rus = false;
+        boolean eng = false;
         for (int i = 0; i < word.length(); ++i) {
-            if (!isRussian(word.charAt(i))) {
+            if (isRussian(word.charAt(i))) {
+                if (eng) {
+                    return false;
+                }
+                rus = true;
+            } else if (isEnglish(word.charAt(i))) {
+                if (rus) {
+                    return false;
+                }
+                eng = true;
+            } else {
                 return false;
             }
         }
