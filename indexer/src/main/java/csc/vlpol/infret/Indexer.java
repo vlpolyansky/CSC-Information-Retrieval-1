@@ -5,8 +5,7 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
 
 import static csc.vlpol.infret.Utils.*;
 
@@ -27,7 +26,7 @@ public class Indexer {
     }
 
     private LuceneMorphology rusMorphology, engMorphology;
-    private HashMap<String, IntArrayList> indexMap = new HashMap<>();
+    private IndexMap indexMap = new IndexMap();
     private File[] documents;
 
     public Indexer() throws IOException {
@@ -36,9 +35,9 @@ public class Indexer {
     }
 
     public void build(String docsDir, String indexFile) throws IOException {
-//        documents = Arrays.copyOfRange(new File(docsDir).listFiles(), 0, 100);
         documents = new File(docsDir).listFiles();
         assert documents != null;
+        //documents = Arrays.copyOfRange(documents, 0, 100);
         for (int i = 0; i < documents.length; ++i) {
             System.out.print("Handling " + documents[i].getName() + "(" + (i + 1) + "/" + documents.length + ") ... ");
             handleFile(i);
@@ -48,6 +47,7 @@ public class Indexer {
     }
 
     private void handleFile(int doc) throws IOException {
+        int position = 0;
         BufferedReader in = new BufferedReader(new FileReader(documents[doc]));
         String line;
         while ((line = in.readLine()) != null) {
@@ -56,37 +56,41 @@ public class Indexer {
             while ((word = tok.nextWord()) != null) {
                 LuceneMorphology curMorphology = isRussian(word.charAt(0)) ? rusMorphology : engMorphology;
                 for (String def : curMorphology.getNormalForms(word.toLowerCase())) {
-                    if (!indexMap.containsKey(def)) {
-                        IntArrayList value = new IntArrayList();
-                        value.add(doc);
-                        indexMap.put(def, value);
-                    } else {
-                        IntArrayList list = indexMap.get(def);
-                        if (list.last() != doc) {
-                            list.add(doc);
-                        }
-                    }
+                    addWord(def, doc, position);
                 }
+                ++position;
             }
         }
     }
 
-    private void saveIndex(String indexFile) throws FileNotFoundException {
+    /**
+     * Important: while adding, for each word document ids have to go in increasing order,
+     * and inside each document word positions have to go in increasing order too.
+     */
+    private void addWord(String word, int docId, int position) {
+        ArrayList<IndexMap.DocPositionList> list;
+        if (!indexMap.containsKey(word)) {
+            list = new ArrayList<>();
+            indexMap.put(word, list);
+        } else {
+            list = indexMap.get(word);
+        }
+        IndexMap.DocPositionList docList = list.isEmpty() ? null : list.get(list.size() - 1);
+        if (docList == null || docList.getDocId() != docId) {
+            docList = new IndexMap.DocPositionList(docId);
+            list.add(docList);
+        }
+        docList.add(position);
+    }
+
+    private void saveIndex(String indexFile) throws IOException {
         System.out.print("Writing index ... ");
-        PrintWriter out = new PrintWriter(indexFile);
-        out.println(documents.length);
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile)));
+        out.writeInt(documents.length);
         for (File doc : documents) {
-            out.println(doc.getName());
+            out.writeUTF(doc.getName());
         }
-        out.println(indexMap.size());
-        for (Map.Entry<String, IntArrayList> entry : indexMap.entrySet()) {
-            out.print(entry.getKey() + " ");
-            IntArrayList value = entry.getValue();
-            for (int i = 0; i < value.size(); ++i) {
-                out.print(value.get(i) + " ");
-            }
-            out.println();
-        }
+        indexMap.writeTo(out);
         out.close();
         System.out.println("done");
     }

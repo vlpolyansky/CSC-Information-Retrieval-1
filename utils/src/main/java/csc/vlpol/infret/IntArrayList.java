@@ -1,8 +1,18 @@
 package csc.vlpol.infret;
 
-public class IntArrayList {
-    private int[] array = new int[8];
+import java.util.Iterator;
+
+public class IntArrayList implements Iterable<Integer> {
+    private int[] array;
     private int size = 0;
+
+    public IntArrayList() {
+        this(8);
+    }
+
+    public IntArrayList(int capacity) {
+        array = new int[capacity];
+    }
 
     public int size() {
         return size;
@@ -21,8 +31,37 @@ public class IntArrayList {
         return array[i];
     }
 
-    public int last() {
-        return array[size - 1];
+    public int leftSearch(int x) {
+        int l = -1;
+        int r = size - 1;
+        while (r - l > 1) {
+            int m = (l + r) >> 1;
+            if (array[m] < x) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+        if (array[r] < x) {
+            ++r;
+        }
+        return r;
+    }
+
+    @Override
+    public Iterator<Integer> iterator() {
+        return new Iterator<Integer>() {
+            int i = 0;
+            @Override
+            public boolean hasNext() {
+                return i < size - 1;
+            }
+
+            @Override
+            public Integer next() {
+                return array[i++];
+            }
+        };
     }
 
 }
